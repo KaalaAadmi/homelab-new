@@ -1,0 +1,41 @@
+# openGym: gym and body-weight tracker. Stores everything as JSON files, no database.
+# Passkeys need HTTPS on a real name, so open it at https://gym.<HOME_DOMAIN> (through Caddy),
+# not at http://<box>:8283. RP_ID and ORIGIN in .env must match that name exactly.
+# Project home moved to gitea.com/DuarteSantos/openGym; the images are still on ghcr.io.
+
+name: opengym
+
+services:
+  api:                       # keep this name: the web container sends /api to "api"
+    image: ghcr.io/duartesantos8/opengym-api:latest
+    env_file: .env
+    environment:
+      PORT: 3000
+      DATA_DIR: /data
+      TRUST_PROXY: 1
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/opengym/data:/data:Z   # users, passkeys, workouts: backed up
+    networks:
+      - opengym
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/duartesantos8/opengym-web:latest
+    environment:
+      NGINX_PORT: 80
+      BACKEND: api
+      PORT: 3000
+      RESOLVER: 127.0.0.11
+      CF_CONNECTING_IP: ""
+      BASE_PATH: ""
+      MEDIA_UPLOAD_MAX: 112m
+    depends_on:
+      - api
+    ports:
+      - 8283:80
+    networks:
+      - opengym
+    restart: unless-stopped
+
+networks:
+  opengym: {}

@@ -1,0 +1,27 @@
+# code-server: VS Code in the browser, for editing the homelab from an iPad or any browser.
+# From your Mac, VS Code's Remote-SSH over Tailscale does the same thing without this.
+#
+# What it can see: ~/homelab and ~/projects only. No Docker socket and no sudo, so it can
+# edit files but can't start containers or become root. Reach it over Tailscale/Caddy only.
+# Note: ~/homelab holds every stack's .env, so anyone who logs in here can read those secrets.
+
+name: code-server
+
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Europe/Dublin}
+      HASHED_PASSWORD: ${HASHED_PASSWORD:?set HASHED_PASSWORD in .env}
+      DEFAULT_WORKSPACE: /workspace
+      PROXY_DOMAIN: ${PROXY_DOMAIN:-}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/code-server:/config:Z
+      - ${HOME}/homelab:/workspace/homelab:z
+      - ${HOME}/projects:/workspace/projects:z
+    ports:
+      - 8443:8443
+    restart: unless-stopped

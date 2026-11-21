@@ -1,0 +1,73 @@
+# Ops tools, both reading Docker through one read-only socket proxy (never the raw socket):
+#   Dozzle  container logs in the browser (logs.<HOME_DOMAIN>, behind the Authentik login)
+#   Diun    checks for newer images every 6 hours and posts to Discord. It never updates
+#           anything itself: you decide when to pull.
+
+name: ops
+
+services:
+  socket-proxy:
+    image: lscr.io/linuxserver/socket-proxy:latest
+    container_name: ops-socket-proxy
+    environment:
+      CONTAINERS: 1     # list containers, read logs and stats
+      IMAGES: 1         # Diun reads image tags
+      INFO: 1
+      EVENTS: 1
+      POST: 0           # read-only: nothing can be started, stopped, created or deleted
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - label=disable   # SELinux (Fedora) blocks socket access otherwise
+    read_only: true
+    tmpfs:
+      - /run
+    networks:
+      - ops
+    restart: unless-stopped
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_ENABLE_ACTIONS: "false"    # no start/stop buttons
+      DOZZLE_ENABLE_SHELL: "false"      # no shell into containers
+    depends_on:
+      - socket-proxy
+    ports:
+      - 9999:8080
+    networks:
+      - ops
+      - homelab
+    restart: unless-stopped
+
+  diun:
+    image: crazymax/diun:4
+    container_name: diun
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      LOG_LEVEL: info
+      DIUN_WATCH_SCHEDULE: "0 */6 * * *"
+      DIUN_WATCH_FIRSTCHECKNOTIF: "false"     # don't post every image on the first run
+      DIUN_PROVIDERS_DOCKER: "true"
+      DIUN_PROVIDERS_DOCKER_ENDPOINT: tcp://socket-proxy:2375
+      DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT: "true"
+      DIUN_NOTIF_DISCORD_WEBHOOKURL: ${DISCORD_WEBHOOK_URL:?set DISCORD_WEBHOOK_URL in .env}
+      DIUN_NOTIF_DISCORD_RENDERFIELDS: "true"
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/diun:/data:Z
+    depends_on:
+      - socket-proxy
+    networks:
+      - ops
+      - outbound      # to reach the registries and Discord
+    restart: unless-stopped
+
+networks:
+  ops:
+    internal: true    # the socket proxy is reachable only by Dozzle and Diun
+  outbound: {}
+  homelab:
+    external: true

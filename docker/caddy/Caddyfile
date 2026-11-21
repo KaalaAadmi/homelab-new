@@ -1,0 +1,255 @@
+{
+	email {$ACME_EMAIL}
+}
+
+(proxy) {
+	reverse_proxy host.docker.internal:{args[0]}
+}
+
+# Same, but asks for an Authentik login first. Used for apps that have no login of their own.
+# Needs the "homelab-forward-auth" provider in Authentik (README: "Who can reach what").
+(protected) {
+	route {
+		reverse_proxy /outpost.goauthentik.io/* host.docker.internal:9000
+		forward_auth host.docker.internal:9000 {
+			uri /outpost.goauthentik.io/auth/caddy
+			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name X-Authentik-Uid
+			trusted_proxies private_ranges
+		}
+		reverse_proxy host.docker.internal:{args[0]}
+	}
+}
+
+*.{$HOME_DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+
+	# Media
+	@jellyfin host jellyfin.{$HOME_DOMAIN}
+	handle @jellyfin {
+		import proxy 8096
+	}
+	@seerr host seerr.{$HOME_DOMAIN}
+	handle @seerr {
+		import proxy 5055
+	}
+	@radarr host radarr.{$HOME_DOMAIN}
+	handle @radarr {
+		import proxy 7878
+	}
+	@sonarr host sonarr.{$HOME_DOMAIN}
+	handle @sonarr {
+		import proxy 8989
+	}
+	@lidarr host lidarr.{$HOME_DOMAIN}
+	handle @lidarr {
+		import proxy 8686
+	}
+	@mylar host mylar.{$HOME_DOMAIN}
+	handle @mylar {
+		import protected 8090
+	}
+	@bazarr host bazarr.{$HOME_DOMAIN}
+	handle @bazarr {
+		import protected 6767
+	}
+	@prowlarr host prowlarr.{$HOME_DOMAIN}
+	handle @prowlarr {
+		import proxy 9696
+	}
+	@deluge host deluge.{$HOME_DOMAIN}
+	handle @deluge {
+		import proxy 8112
+	}
+	@manga host manga.{$HOME_DOMAIN}
+	handle @manga {
+		import proxy 4567
+	}
+	@komf host komf.{$HOME_DOMAIN}
+	handle @komf {
+		import protected 8086
+	}
+	@comics host comics.{$HOME_DOMAIN}
+	handle @comics {
+		import proxy 5001
+	}
+	@audiobooks host audiobooks.{$HOME_DOMAIN}
+	handle @audiobooks {
+		import proxy 13378
+	}
+	@chaptarr host chaptarr.{$HOME_DOMAIN}
+	handle @chaptarr {
+		import proxy 8789
+	}
+	@suggestarr host suggestarr.{$HOME_DOMAIN}
+	handle @suggestarr {
+		import protected 5000
+	}
+	@boxarr host boxarr.{$HOME_DOMAIN}
+	handle @boxarr {
+		import protected 8888
+	}
+	@blockbusterr host blockbusterr.{$HOME_DOMAIN}
+	handle @blockbusterr {
+		import protected 9091
+	}
+	@tdarr host tdarr.{$HOME_DOMAIN}
+	handle @tdarr {
+		import protected 8265
+	}
+	@jellydash host jellydash.{$HOME_DOMAIN}
+	handle @jellydash {
+		import proxy 8094
+	}
+
+	# Home
+	@ha host ha.{$HOME_DOMAIN}
+	handle @ha {
+		import proxy 8123
+	}
+	@music host music.{$HOME_DOMAIN}
+	handle @music {
+		import proxy 8095
+	}
+	@esphome host esphome.{$HOME_DOMAIN}
+	handle @esphome {
+		import protected 6052
+	}
+	@zigbee host zigbee.{$HOME_DOMAIN}
+	handle @zigbee {
+		import protected 8080
+	}
+	@adguard host adguard.{$HOME_DOMAIN}
+	handle @adguard {
+		import proxy 3000
+	}
+
+	# Apps
+	@nextcloud host nextcloud.{$HOME_DOMAIN}
+	handle @nextcloud {
+		import proxy 9875
+	}
+	@immich host immich.{$HOME_DOMAIN}
+	handle @immich {
+		import proxy 2283
+	}
+	@firefly host firefly.{$HOME_DOMAIN}
+	handle @firefly {
+		import proxy 1212
+	}
+	@importer host importer.{$HOME_DOMAIN}
+	handle @importer {
+		import proxy 1313
+	}
+	@miniflux host miniflux.{$HOME_DOMAIN}
+	handle @miniflux {
+		import proxy 8085
+	}
+	@couchdb host couchdb.{$HOME_DOMAIN}
+	handle @couchdb {
+		import proxy 5984
+	}
+	@auth host auth.{$HOME_DOMAIN}
+	handle @auth {
+		import proxy 9000
+	}
+	@vault host vault.{$HOME_DOMAIN}
+	handle @vault {
+		import proxy 8222
+	}
+	@kan host kan.{$HOME_DOMAIN}
+	handle @kan {
+		import proxy 3005
+	}
+	@n8n host n8n.{$HOME_DOMAIN}
+	handle @n8n {
+		import proxy 5678
+	}
+	@gym host gym.{$HOME_DOMAIN}
+	handle @gym {
+		import proxy 8283
+	}
+	@habits host habits.{$HOME_DOMAIN}
+	handle @habits {
+		import proxy 8284
+	}
+	@code host code.{$HOME_DOMAIN}
+	handle @code {
+		import proxy 8443
+	}
+
+	# AI
+	@litellm host litellm.{$HOME_DOMAIN}
+	handle @litellm {
+		import proxy 4000
+	}
+	@omniroute host omniroute.{$HOME_DOMAIN}
+	handle @omniroute {
+		import proxy 20128
+	}
+	@docs host docs.{$HOME_DOMAIN}
+	handle @docs {
+		import proxy 8010
+	}
+	@recipes host recipes.{$HOME_DOMAIN}
+	handle @recipes {
+		import proxy 9925
+	}
+	@chat host chat.{$HOME_DOMAIN}
+	handle @chat {
+		import proxy 3010
+	}
+	@search host search.{$HOME_DOMAIN}
+	handle @search {
+		import protected 8089
+	}
+	@llama host llama.{$HOME_DOMAIN}
+	handle @llama {
+		import protected 8099
+	}
+
+	# Admin
+	@glance host glance.{$HOME_DOMAIN}
+	handle @glance {
+		import protected 8081
+	}
+	@grafana host grafana.{$HOME_DOMAIN}
+	handle @grafana {
+		import proxy 1234
+	}
+	@prometheus host prometheus.{$HOME_DOMAIN}
+	handle @prometheus {
+		import protected 9898
+	}
+	@speedtest host speedtest.{$HOME_DOMAIN}
+	handle @speedtest {
+		import proxy 8070
+	}
+	@logs host logs.{$HOME_DOMAIN}
+	handle @logs {
+		import protected 9999
+	}
+	@disks host disks.{$HOME_DOMAIN}
+	handle @disks {
+		import protected 8087
+	}
+	@uptime host uptime.{$HOME_DOMAIN}
+	handle @uptime {
+		import proxy 3001
+	}
+	@portainer host portainer.{$HOME_DOMAIN}
+	handle @portainer {
+		reverse_proxy https://host.docker.internal:9443 {
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	# Anything else: refuse
+	handle {
+		abort
+	}
+}

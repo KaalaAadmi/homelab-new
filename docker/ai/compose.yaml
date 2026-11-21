@@ -1,0 +1,125 @@
+# AI gateway on the K8 Plus, until (and alongside) the AI box:
+#   LiteLLM    the one door every app uses for models. It maps YETI's roles (yeti-fast, yeti-deep, ...)
+#              to real models, holds the provider keys, and enforces budgets. Database "litellm".
+#   OmniRoute  extra free capacity behind LiteLLM, API-key providers only (see .env.example).
+#   llama-swap small local models on the processor: embeddings and the private model.
+#   SearXNG    web search for YETI, no account needed.
+#   Open WebUI a chat page for trying models (LiteLLM now, YETI later).
+#
+# Apps reach LiteLLM as http://litellm:4000/v1 on the homelab network, each with its own key.
+
+name: ai
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD:?set LITELLM_DB_PASSWORD in .env}@postgres:5432/litellm
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY in .env}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?set LITELLM_SALT_KEY in .env}
+      STORE_MODEL_IN_DB: "False"
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY:-}
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ./litellm.yaml:/app/config.yaml:ro,z
+    ports:
+      - 4000:4000
+    depends_on:
+      - llama-swap
+    networks:
+      - ai
+      - db
+      - homelab
+    restart: unless-stopped
+
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: omniroute
+    env_file: omniroute.env
+    environment:
+      DATA_DIR: /app/data
+      PORT: 20128
+      REQUIRE_API_KEY: "true"        # never run its /v1 endpoint without a key
+      ALLOW_API_KEY_REVEAL: "false"
+      REDIS_URL: redis://omniroute-valkey:6379
+      NODE_ENV: production
+    volumes:
+      - omniroute-data:/app/data
+    ports:
+      - 20128:20128                  # dashboard + /v1 (key required)
+    depends_on:
+      - omniroute-valkey
+    networks:
+      - ai
+    restart: unless-stopped
+
+  omniroute-valkey:
+    image: valkey/valkey:8-alpine
+    container_name: omniroute-valkey
+    networks:
+      - ai
+    restart: unless-stopped
+
+  llama-swap:
+    image: ghcr.io/mostlygeek/llama-swap:cpu
+    container_name: llama-swap
+    volumes:
+      - ./llama-swap.yaml:/app/config.yaml:ro,z
+      - ${MODELS_DIR:-${HOME}/volumes/models}:/models:ro,z
+    ports:
+      - 8099:8080
+    networks:
+      - ai
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    environment:
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://localhost:8089/}
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?set SEARXNG_SECRET in .env}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro,z
+    ports:
+      - 8089:8080
+    networks:
+      - ai
+      - homelab                      # YETI calls http://searxng:8080/search?format=json
+    restart: unless-stopped
+
+  # Open WebUI: a ChatGPT-style page for trying models. Talks to LiteLLM now, and to YETI's
+  # OpenAI-compatible endpoint once YETI runs. Its own login; the first account becomes admin.
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    environment:
+      OPENAI_API_BASE_URL: ${OPENWEBUI_API_BASE_URL:-http://litellm:4000/v1}
+      OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-}   # a LiteLLM virtual key; the page has no models until it is set
+      WEBUI_SECRET_KEY: ${OPENWEBUI_SECRET_KEY:?set OPENWEBUI_SECRET_KEY in .env}
+      ENABLE_OLLAMA_API: "False"
+      ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - open-webui-data:/app/backend/data
+    ports:
+      - 3010:8080
+    networks:
+      - ai
+      - homelab
+    restart: unless-stopped
+
+volumes:
+  omniroute-data:
+  open-webui-data:
+
+networks:
+  ai: {}
+  db:
+    external: true
+  homelab:
+    external: true

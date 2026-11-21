@@ -1,0 +1,20 @@
+# Cloudflare Tunnel. Public hostnames are set in the Cloudflare dashboard and point at
+# container names on the homelab network, e.g. http://seerr:5055, http://nextcloud:80,
+# http://authentik-server:9000. Don't publish Jellyfin, Immich or admin UIs here.
+
+name: cloudflared
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    networks:
+      - homelab
+    restart: unless-stopped
+
+networks:
+  homelab:
+    external: true

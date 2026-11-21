@@ -1,0 +1,28 @@
+# Miniflux RSS reader: collects the feeds for YETI's news brief.
+# Database: "miniflux" on the shared Postgres (docker/postgres).
+
+name: miniflux
+
+services:
+  miniflux:
+    image: miniflux/miniflux:latest
+    container_name: miniflux
+    environment:
+      DATABASE_URL: postgres://miniflux:${DB_PASSWORD:?set DB_PASSWORD in .env}@postgres/miniflux?sslmode=disable
+      RUN_MIGRATIONS: "1"
+      CREATE_ADMIN: "1"
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      BASE_URL: ${BASE_URL:-http://localhost:8085}
+    ports:
+      - 8085:8080
+    networks:
+      - db
+      - homelab
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true
+  homelab:
+    external: true

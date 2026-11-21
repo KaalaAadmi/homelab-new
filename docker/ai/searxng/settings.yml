@@ -1,0 +1,13 @@
+# Minimal SearXNG settings: defaults, plus the JSON output YETI's web.search tool needs.
+# The secret comes from SEARXNG_SECRET in .env.
+use_default_settings: true
+
+server:
+  limiter: false          # only reachable on your own network
+  image_proxy: true
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json

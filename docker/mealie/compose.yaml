@@ -1,0 +1,39 @@
+# Mealie: recipes, meal plans and shopping lists. Database: "mealie" on the shared Postgres.
+# Paste a recipe's web address and it imports the ingredients and steps.
+
+name: mealie
+
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:latest
+    container_name: mealie
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      BASE_URL: ${BASE_URL:?set BASE_URL in .env}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-false}
+      DB_ENGINE: postgres
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: mealie
+      POSTGRES_USER: mealie
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      # Optional: let Mealie use LiteLLM for parsing ingredients and importing from photos
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-yeti-fast}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/mealie:/app/data:Z
+    ports:
+      - 9925:9000      # 9000 on the host belongs to Authentik
+    networks:
+      - db
+      - homelab        # YETI calls http://mealie:9000/api
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true
+  homelab:
+    external: true

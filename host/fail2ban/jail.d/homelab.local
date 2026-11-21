@@ -1,0 +1,33 @@
+# fail2ban for the homelab. Copy to /etc/fail2ban/jail.d/ and replace YOUR_USER (see README).
+# Bans an address for 1 hour after 5 failures in 10 minutes.
+
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+# Never ban yourself over Tailscale or the box's own containers
+ignoreip = 127.0.0.1/8 ::1 100.64.0.0/10 172.16.0.0/12
+
+[sshd]
+enabled = true
+backend = systemd
+
+# Vaultwarden runs behind Caddy in Docker, so bans go into DOCKER-USER (the chain Docker
+# traffic passes through) instead of the normal INPUT chain. Ports are Caddy's 80/443.
+[vaultwarden]
+enabled  = true
+port     = 80,443
+filter   = vaultwarden
+logpath  = /home/YOUR_USER/volumes/vaultwarden/vaultwarden.log
+chain    = DOCKER-USER
+banaction = iptables-multiport
+
+[vaultwarden-admin]
+enabled  = true
+port     = 80,443
+filter   = vaultwarden-admin
+logpath  = /home/YOUR_USER/volumes/vaultwarden/vaultwarden.log
+chain    = DOCKER-USER
+banaction = iptables-multiport
+maxretry = 3
+bantime  = 6h

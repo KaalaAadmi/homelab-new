@@ -1,0 +1,44 @@
+# Sherpa: the household's media request bot on Discord (/movie, /series, /anime, /music,
+# /book, /comic, /manga), and the request service YETI uses. Code: apps/sherpa.
+#
+# It talks to Seerr, Radarr, Sonarr, Lidarr, Chaptarr, Mylar3 and Suwayomi on the media
+# network, and keeps who-asked-for-what in the "sherpa" database on the shared Postgres.
+# It can search, request and read. It has no code that deletes anything.
+#
+# Start the media and postgres stacks first (this joins their networks).
+#   docker compose up -d --build
+
+name: sherpa
+
+services:
+  sherpa:
+    build: ../../apps/sherpa
+    image: homelab/sherpa:local
+    container_name: sherpa
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sherpa:${DB_PASSWORD:?set DB_PASSWORD in .env}@postgres:5432/sherpa
+      MEDIA_DIR: /data/media
+    volumes:
+      # read-only: only to measure sizes and free space
+      - ${DATA:-${HOME}/data}/media:/data/media:ro,z
+    ports:
+      # YETI's API. The host firewall keeps it to Tailscale and containers (not the LAN).
+      - 8320:8320
+    networks:
+      - media
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+networks:
+  media:
+    external: true
+  db:
+    external: true

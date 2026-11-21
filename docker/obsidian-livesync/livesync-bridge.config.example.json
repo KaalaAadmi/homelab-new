@@ -1,0 +1,25 @@
+{
+  "peers": [
+    {
+      "type": "couchdb",
+      "name": "obsidian-couchdb",
+      "group": "vault",
+      "url": "http://couchdb:5984",
+      "database": "obsidian",
+      "username": "obsidian",
+      "password": "SAME AS COUCHDB_PASSWORD IN .env",
+      "passphrase": "YOUR LIVESYNC END-TO-END ENCRYPTION PASSPHRASE",
+      "obfuscatePassphrase": "SAME PASSPHRASE IF 'OBFUSCATE PROPERTIES' IS ON, ELSE EMPTY",
+      "baseDir": "",
+      "useRemoteTweaks": true
+    },
+    {
+      "type": "storage",
+      "name": "vault-folder",
+      "group": "vault",
+      "baseDir": "./data/vault/",
+      "scanOfflineChanges": true,
+      "ignore": ["**/.git/**", "**/.obsidian/**", "**/.trash/**"]
+    }
+  ]
+}

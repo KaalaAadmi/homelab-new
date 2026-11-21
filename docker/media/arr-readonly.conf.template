@@ -1,0 +1,47 @@
+# GET-only window onto the *arr download queues, for YETI's download-status tool.
+# Anything that isn't a GET to one of these four paths gets a 403 or 404.
+# ${..._API_KEY} values are filled in from the environment when the container starts.
+
+resolver 127.0.0.11 valid=30s ipv6=off;   # Docker's DNS, so a restarted app is found again
+
+server {
+    listen 8080;
+    server_name _;
+    default_type application/json;
+
+    location = /radarr/queue {
+        limit_except GET { deny all; }
+        set $upstream http://radarr:7878;
+        proxy_set_header X-Api-Key "${RADARR_API_KEY}";
+        proxy_pass $upstream/api/v3/queue$is_args$args;
+    }
+
+    location = /sonarr/queue {
+        limit_except GET { deny all; }
+        set $upstream http://sonarr:8989;
+        proxy_set_header X-Api-Key "${SONARR_API_KEY}";
+        proxy_pass $upstream/api/v3/queue$is_args$args;
+    }
+
+    location = /lidarr/queue {
+        limit_except GET { deny all; }
+        set $upstream http://lidarr:8686;
+        proxy_set_header X-Api-Key "${LIDARR_API_KEY}";
+        proxy_pass $upstream/api/v1/queue$is_args$args;
+    }
+
+    location = /chaptarr/queue {
+        limit_except GET { deny all; }
+        set $upstream http://chaptarr:8789;
+        proxy_set_header X-Api-Key "${CHAPTARR_API_KEY}";
+        proxy_pass $upstream/api/v1/queue$is_args$args;
+    }
+
+    location = /healthz {
+        return 200 "ok\n";
+    }
+
+    location / {
+        return 404;
+    }
+}

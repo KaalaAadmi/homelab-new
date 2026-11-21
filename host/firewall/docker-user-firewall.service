@@ -1,0 +1,15 @@
+# Re-applies the DOCKER-USER rules after every boot and every Docker restart.
+# Install: see README "Who can reach what".
+[Unit]
+Description=Limit LAN access to Docker-published ports
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/docker-user-firewall.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=docker.service

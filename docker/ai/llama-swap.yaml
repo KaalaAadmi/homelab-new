@@ -1,0 +1,26 @@
+# Small models on the K8 Plus processor. Download the two files into ~/volumes/models (README).
+# Both stay loaded side by side (the "always" group), so neither unloads the other.
+
+healthCheckTimeout: 300
+
+models:
+  qwen3-embedding:
+    cmd: >
+      /app/llama-server --port ${PORT}
+      -m /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+      --embedding --pooling last -c 8192 -ub 8192
+
+  qwen3-4b:
+    cmd: >
+      /app/llama-server --port ${PORT}
+      -m /models/Qwen3-4B-Q4_K_M.gguf
+      -c 16384 --jinja
+
+groups:
+  always:
+    persistent: true
+    swap: false
+    exclusive: false
+    members:
+      - qwen3-embedding
+      - qwen3-4b

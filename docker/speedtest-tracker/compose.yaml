@@ -1,0 +1,34 @@
+# Speedtest Tracker. Database: "speedtest" on the shared Postgres (docker/postgres).
+
+name: speedtest-tracker
+
+services:
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    container_name: speedtest-tracker
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      APP_KEY: ${APP_KEY:?set APP_KEY in .env}
+      APP_TIMEZONE: ${TZ:-Europe/Dublin}
+      DISPLAY_TIMEZONE: ${TZ:-Europe/Dublin}
+      SPEEDTEST_SCHEDULE: "*/45 * * * *"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: speedtest
+      DB_USERNAME: speedtest
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/speedtest-tracker/config:/config:Z
+    ports:
+      - 8070:80
+    networks:
+      - db
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true

@@ -1,0 +1,17 @@
+# Portainer needs full Docker access by design. Keep it reachable over Tailscale only
+# (never put it on the Cloudflare tunnel).
+
+name: portainer
+
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${APPDATA:-${HOME}/volumes}/portainer:/data:Z
+    security_opt:
+      - label=disable   # SELinux on Fedora blocks socket access otherwise
+    ports:
+      - 9443:9443
+    restart: unless-stopped

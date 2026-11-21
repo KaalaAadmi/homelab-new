@@ -1,0 +1,35 @@
+# Caddy reverse proxy: https://<service>.home.<domain> for every web UI, with a real
+# wildcard certificate. Names resolve through AdGuard to this box's Tailscale IP, so they
+# work from any of your devices on Tailscale and are never published on the internet.
+#
+# Upstreams use host.docker.internal:<published port>, so Caddy reaches every service,
+# including the ones behind Gluetun and Home Assistant on the host network.
+
+name: caddy
+
+services:
+  caddy:
+    build: .
+    image: homelab-caddy:local
+    container_name: caddy
+    environment:
+      HOME_DOMAIN: ${HOME_DOMAIN:?set HOME_DOMAIN in .env}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?set CLOUDFLARE_API_TOKEN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ${APPDATA:-${HOME}/volumes}/caddy/data:/data:Z
+      - ${APPDATA:-${HOME}/volumes}/caddy/config:/config:Z
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp
+    networks:
+      - homelab
+    restart: unless-stopped
+
+networks:
+  homelab:
+    external: true

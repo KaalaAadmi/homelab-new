@@ -1,0 +1,41 @@
+# Nextcloud (linuxserver image) + Redis. Database: "nextcloud" on the shared Postgres.
+# First visit: the web installer asks for the database. Choose PostgreSQL and enter:
+#   user "nextcloud", password = NEXTCLOUD_DB_PASSWORD, database "nextcloud", host "postgres"
+# Then add your domain to 'trusted_domains' in ${APPDATA}/nextcloud/config/www/nextcloud/config/config.php
+
+name: nextcloud
+
+services:
+  redis:
+    image: redis:7-alpine
+    networks:
+      - nextcloud
+    restart: unless-stopped
+
+  nextcloud:
+    image: lscr.io/linuxserver/nextcloud:latest
+    container_name: nextcloud
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/nextcloud/config:/config:Z
+      - ${NEXTCLOUD_DATA:-${HOME}/data/nextcloud}:/data:Z
+    ports:
+      - 9875:80
+      - 9876:443
+    depends_on:
+      - redis
+    networks:
+      - nextcloud
+      - db
+      - homelab        # so cloudflared can reach it
+    restart: unless-stopped
+
+networks:
+  nextcloud: {}
+  db:
+    external: true
+  homelab:
+    external: true

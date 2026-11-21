@@ -1,0 +1,25 @@
+# Uptime Kuma: checks that each service answers, and sends a phone alert when one stops.
+# (Glance shows the same up/down at a glance; Grafana covers CPU, memory and disk.)
+# Add monitors as http://host.docker.internal:<port>, like Glance does.
+
+name: uptime-kuma
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/uptime-kuma:/app/data:Z
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 3001:3001
+    networks:
+      - homelab
+    restart: unless-stopped
+
+networks:
+  homelab:
+    external: true

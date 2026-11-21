@@ -1,0 +1,59 @@
+# Neohabit: habit tracker with heatmaps. Database: "neohabit" on the shared Postgres.
+# Based on the project's own compose file; its built-in Caddy only serves the web app
+# and passes /api to the backend (our main Caddy adds HTTPS in front).
+
+name: neohabit
+
+services:
+  backend:
+    image: ghcr.io/vsein/neohabit-back:${TAG:-latest}
+    environment:
+      PG_DSN: postgres://neohabit:${DB_PASSWORD:?set DB_PASSWORD in .env}@postgres:5432/neohabit?sslmode=disable
+      PG_MAX_OPEN_CONNS: 10
+      PG_MAX_LIFETIME: 30m
+      PG_MAX_IDLE_TIME: 10m
+      LOG_LEVEL: info
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL in .env}
+    networks:
+      - neohabit
+      - db
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/vsein/neohabit-front:${TAG:-latest}
+    environment:
+      DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+      STRICT_USER_FIELDS: "true"
+      REQUIRE_EMAIL: "false"
+      DEMO: "false"
+    depends_on:
+      - backend
+    volumes:
+      - frontend-dist:/srv
+    networks:
+      - neohabit
+    restart: unless-stopped
+
+  web:
+    image: caddy:2-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - frontend-dist:/srv
+      - caddy-data:/data
+    depends_on:
+      - frontend
+    ports:
+      - 8284:80
+    networks:
+      - neohabit
+    restart: unless-stopped
+
+volumes:
+  frontend-dist:
+  caddy-data:
+
+networks:
+  neohabit: {}
+  db:
+    external: true

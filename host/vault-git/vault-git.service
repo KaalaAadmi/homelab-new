@@ -1,0 +1,6 @@
+[Unit]
+Description=Commit the Obsidian vault copy to git
+
+[Service]
+Type=oneshot
+ExecStart=%h/homelab/host/vault-git/vault-git.sh

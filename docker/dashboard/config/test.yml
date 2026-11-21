@@ -1,0 +1,133 @@
+- name: Test
+  columns:
+  - size: full
+    widgets:
+        - type: search
+          search-engine: google
+          new-tab: true
+          autofocus: true
+          bangs:
+            - title: GitHub
+              shortcut: "!gh"
+              url: https://github.com/search?q={QUERY}&type=repositories
+
+            - title: FitGirl
+              shortcut: "!fg"
+              url: https://fitgirl-repacks.site/?s={QUERY}
+
+            - title: YouTube
+              shortcut: "!yt"
+              url: https://www.youtube.com/results?search_query={QUERY}
+
+            - title: SimpleIcons
+              shortcut: "!si"
+              url: https://simpleicons.org/?q={QUERY}
+
+            - title: Grafana
+              shortcut: "!gf"
+              url: https://grafana.${HOME_DOMAIN}/dashboards?query={QUERY}
+        - type: split-column
+          widgets:
+          - type: clock
+            hour-format: 12h
+            timezones:
+              - timezone: Eire
+                label: Dublin
+              - timezone: Asia/Kolkata
+                label: India
+              # - timezone: Asia/Tokyo
+              #   label: Tokyo
+
+          - type: weather
+            location: Dublin
+            units: metric # alternatively "imperial"
+            hour-format: 12h # alternatively "24h"
+            # Optionally hide the location from being displayed in the widget
+            # hide-location: true
+        - type: docker-containers
+          sock-path: tcp://socket-proxy:2375
+          hide-by-default: false
+          title: Containers
+          collapse-after: 5
+        # - type: split-column
+        #   title: Sevarr
+        #   widgets:
+        #     - type: monitor
+        #       cache: 1m
+        #       title: ARR Suite
+        #       sites:
+        #         - title: QBittorrent
+        #           url: http://k8plus:8080
+        #           icon: di:qbittorrent
+        #         - title: Flaresolverr
+        #           url: http://k8plus:8191
+        #           icon: di:flaresolver
+        #         - title: Requestrr
+        #           url: http://k8plus:4545
+        #           icon: di:requestrr
+        #     - type: monitor
+        #       cache: 1m
+        #       title: ARR Suite
+        #       sites:
+        #         - title: QBittorrent
+        #           url: http://k8plus:8080
+        #           icon: di:qbittorrent
+        #         - title: Flaresolverr
+        #           url: http://k8plus:8191
+        #           icon: di:flaresolver
+        #         - title: Requestrr
+        #           url: http://k8plus:4545
+        #           icon: di:requestrr
+        
+  - size: small
+    widgets:
+        - type: calendar
+          first-day-of-week: monday
+        - type: server-stats
+          servers:
+            - type: local
+              hide-mountpoints-by-default: true
+              mountpoints:
+                "/app/config":
+                  hide: false
+                  name: "Host"
+              name: Services
+        - type: custom-api
+          title: Immich stats
+          cache: 1d
+          url: ${IMMICH_URL}/api/server/statistics
+          headers:
+            x-api-key: ${IMMICH_API_KEY}
+            Accept: application/json
+          template: |
+            <div class="flex justify-between text-center">
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div>
+                  <div class="size-h6">PHOTOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div>
+                  <div class="size-h6">VIDEOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div>
+                  <div class="size-h6">USAGE</div>
+              </div>
+            </div>
+        # - type: clock
+        #   hour-format: 12h
+        #   timezones:
+        #     - timezone: Eire
+        #       label: Dublin
+        #     - timezone: Asia/Kolkata
+        #       label: India
+        #     # - timezone: Asia/Tokyo
+        #     #   label: Tokyo
+
+        # - type: weather
+        #   location: Dublin
+        #   units: metric # alternatively "imperial"
+        #   hour-format: 12h # alternatively "24h"
+        #   # Optionally hide the location from being displayed in the widget
+        #   # hide-location: true
+        

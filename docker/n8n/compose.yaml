@@ -1,0 +1,49 @@
+# n8n: wiring apps together (app-to-app automations). Database: "n8n" on the shared Postgres.
+#
+# Security: n8n has had a run of critical bugs (several allowed taking over the server).
+#   - Tailscale/Caddy only. Never route it through the Cloudflare Tunnel.
+#   - Update often: docker compose pull && docker compose up -d
+#   - Don't give it homelab admin credentials (Docker, Portainer, Authentik admin, Cloudflare).
+# Conversational things belong to YETI; n8n is for plumbing between apps.
+
+name: n8n
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
+      N8N_HOST: ${N8N_HOST:?set N8N_HOST in .env}
+      N8N_PROTOCOL: https
+      N8N_PORT: 5678
+      WEBHOOK_URL: https://${N8N_HOST}/
+      N8N_PROXY_HOPS: 1
+      N8N_SECURE_COOKIE: "true"
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "true"
+      GENERIC_TIMEZONE: ${TZ:-Europe/Dublin}
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/n8n:/home/node/.n8n:Z   # create it first: mkdir -p ~/volumes/n8n
+    ports:
+      - 5678:5678
+    networks:
+      - db
+      - homelab
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true
+  homelab:
+    external: true

@@ -1,0 +1,468 @@
+# Media stack: Seerr -> Radarr/Sonarr (+ Lidarr, Mylar3, Chaptarr, Bazarr) -> Prowlarr -> Deluge (behind Gluetun)
+#              -> Jellyfin (films, TV, music), Audiobookshelf (audiobooks, ebooks), Kavita (comics, manga)
+# Manga:       Suwayomi (behind Gluetun) downloads chapters as CBZ into media/manga -> Kavita
+# Metadata:    Komf fills in Kavita's series details (MangaUpdates, AniList, ComicVine)
+# Profiles:    Recyclarr syncs TRaSH Guides quality profiles into Sonarr/Radarr (incl. anime), daily
+# Discovery:   SuggestArr (from Jellyfin history), Boxarr (box office), Blockbusterr (Trakt etc.)
+# Extras:      Tdarr (re-encodes to save space), Jellydash (who's watching, history, stats),
+#              arr-readonly (GET-only proxy so YETI can see download progress, nothing else)
+#
+# Behind the VPN (network_mode: service:gluetun): Deluge, Prowlarr, FlareSolverr.
+# Their web ports are published on the gluetun service, because a container that
+# shares gluetun's network cannot publish its own ports.
+#
+# Containers behind gluetun can't resolve Docker service names, so the *arr apps
+# get fixed IPs on the "media" network and gluetun's firewall allows that subnet.
+#
+# Wiring inside the apps (set once in each web UI). Fixed IPs on the "media" network:
+#   radarr .11  sonarr .12  seerr .13  jellyfin .14  lidarr .15  mylar3 .16  bazarr .17  chaptarr .18
+#   (containers without a fixed IP get one from .128 up, so they never take these)
+#   Prowlarr  -> Apps (Prowlarr server URL http://gluetun:9696 in each):
+#                Radarr http://172.30.0.11:7878  Sonarr http://172.30.0.12:8989
+#                Lidarr http://172.30.0.15:8686  Mylar http://172.30.0.16:8090
+#                Chaptarr http://172.30.0.18:8789 (add it as a Readarr app)
+#             -> FlareSolverr proxy: http://localhost:8191
+#   Radarr/Sonarr/Lidarr/Mylar3/Chaptarr -> Download client Deluge: host gluetun, port 8112
+#   Bazarr    -> Radarr http://radarr:7878, Sonarr http://sonarr:8989
+#   Seerr     -> Radarr http://radarr:7878, Sonarr http://sonarr:8989, Jellyfin http://jellyfin:8096
+#
+# Folder layout (one /data mount everywhere, so moves are instant hardlinks, not copies):
+#   ${DATA}/torrents/{movies,tv,anime,music,comics,books,audiobooks}   Deluge downloads here
+#   ${DATA}/media/{movies,tv,anime,music,comics,books,audiobooks}      the *arrs file finished downloads here;
+#   ${DATA}/media/manga                                               Suwayomi saves chapters here;
+#                                                               Jellyfin, Audiobookshelf and Kavita read it
+
+name: media
+
+x-lsio-env: &lsio-env
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+  TZ: ${TZ:-Europe/Dublin}
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun:v3
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: openvpn
+      OPENVPN_USER: ${NORDVPN_SERVICE_USER:?set NORDVPN_SERVICE_USER in .env}
+      OPENVPN_PASSWORD: ${NORDVPN_SERVICE_PASSWORD:?set NORDVPN_SERVICE_PASSWORD in .env}
+      SERVER_COUNTRIES: ${VPN_COUNTRIES:-Switzerland,Netherlands}
+      FIREWALL_OUTBOUND_SUBNETS: 172.30.0.0/24
+      UPDATER_PERIOD: 24h
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/gluetun:/gluetun:Z
+    ports:
+      - 8112:8112   # Deluge web UI
+      - 9696:9696   # Prowlarr
+      - 4567:4567   # Suwayomi
+    networks:
+      media:
+        ipv4_address: 172.30.0.2
+    restart: unless-stopped
+
+  deluge:
+    image: lscr.io/linuxserver/deluge:latest
+    container_name: deluge
+    network_mode: service:gluetun
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/deluge:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: service:gluetun
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/prowlarr:/config:Z
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    network_mode: service:gluetun
+    environment:
+      LOG_LEVEL: info
+      TZ: ${TZ:-Europe/Dublin}
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: unless-stopped
+
+  suwayomi:
+    # Manga downloader. Shares Gluetun's network, so all its traffic goes through the VPN,
+    # and it reaches FlareSolverr at http://localhost:8191 for Cloudflare-protected sources.
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    container_name: suwayomi
+    network_mode: service:gluetun
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      AUTH_MODE: ui_login
+      AUTH_USERNAME: ${SUWAYOMI_USER:-admin}
+      AUTH_PASSWORD: ${SUWAYOMI_PASSWORD:?set SUWAYOMI_PASSWORD in .env}
+      DOWNLOAD_AS_CBZ: "true"        # one .cbz per chapter, which Kavita reads directly
+      UPDATE_INTERVAL: 12            # hours between checks for new chapters
+      FLARESOLVERR_ENABLED: "true"
+      FLARESOLVERR_URL: http://localhost:8191
+    volumes:                         # order matters: the downloads folder must come first
+      - ${DATA:-${HOME}/data}/media/manga:/home/suwayomi/.local/share/Tachidesk/downloads:z
+      - ${APPDATA:-${HOME}/volumes}/suwayomi:/home/suwayomi/.local/share/Tachidesk:Z
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/radarr:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    ports:
+      - 7878:7878
+    networks:
+      media:
+        ipv4_address: 172.30.0.11
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/sonarr:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    ports:
+      - 8989:8989
+    networks:
+      media:
+        ipv4_address: 172.30.0.12
+    restart: unless-stopped
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/lidarr:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    ports:
+      - 8686:8686
+    networks:
+      media:
+        ipv4_address: 172.30.0.15
+    restart: unless-stopped
+
+  mylar3:
+    image: lscr.io/linuxserver/mylar3:latest
+    container_name: mylar3
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/mylar3:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    ports:
+      - 8090:8090
+    networks:
+      media:
+        ipv4_address: 172.30.0.16
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/bazarr:/config:Z
+      - ${DATA:-${HOME}/data}/media:/data/media:z
+    ports:
+      - 6767:6767
+    networks:
+      media:
+        ipv4_address: 172.30.0.17
+    restart: unless-stopped
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    init: true
+    environment:
+      LOG_LEVEL: info
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - seerr-config:/app/config   # named volume: Seerr runs as UID 1000 and needs to own it
+    ports:
+      - 5055:5055
+    networks:
+      media:
+        ipv4_address: 172.30.0.13
+      homelab: {}                  # so cloudflared can reach it
+    restart: unless-stopped
+
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/jellyfin/config:/config:Z
+      - ${APPDATA:-${HOME}/volumes}/jellyfin/cache:/cache:Z
+      - ${DATA:-${HOME}/data}/media:/data/media:ro,z
+    ports:
+      - 8096:8096
+    networks:
+      media:
+        ipv4_address: 172.30.0.14
+    restart: unless-stopped
+
+
+  chaptarr:
+    image: chaptarr/chaptarr:latest
+    container_name: chaptarr
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/chaptarr:/config:Z
+      - ${DATA:-${HOME}/data}:/data:z
+    ports:
+      - 8789:8789
+    networks:
+      media:
+        ipv4_address: 172.30.0.18
+    restart: unless-stopped
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/audiobookshelf/config:/config:Z
+      - ${APPDATA:-${HOME}/volumes}/audiobookshelf/metadata:/metadata:Z
+      - ${DATA:-${HOME}/data}/media/audiobooks:/audiobooks:z
+      - ${DATA:-${HOME}/data}/media/books:/books:z
+      - ${DATA:-${HOME}/data}/media/podcasts:/podcasts:z
+    ports:
+      - 13378:80
+    networks:
+      - media
+    restart: unless-stopped
+
+  kavita:
+    # Comics and manga: proper manga reader (right-to-left, double pages, webtoon scroll)
+    # in the browser on phone and laptop, plus OPDS for iPhone apps (Panels, Komic).
+    image: lscr.io/linuxserver/kavita:latest
+    container_name: kavita
+    environment:
+      <<: *lsio-env
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/kavita:/config:Z
+      - ${DATA:-${HOME}/data}/media/comics:/comics:ro,z   # read-only: Kavita only reads your files
+      - ${DATA:-${HOME}/data}/media/manga:/manga:ro,z
+    ports:
+      - 5001:5000       # 5000 is SuggestArr's
+    networks:
+      - media
+    restart: unless-stopped
+
+  komf:
+    # Fetches series details and covers for Kavita (MangaUpdates, AniList, ComicVine).
+    # Settings: komf/application.yml. Port 8086 is for its browser extension and API.
+    image: sndxr/komf:latest
+    container_name: komf
+    environment:
+      KOMF_KAVITA_BASE_URI: http://kavita:5000
+      KOMF_KAVITA_API_KEY: ${KAVITA_API_KEY:-}
+      KOMF_METADATA_PROVIDERS_COMIC_VINE_API_KEY: ${COMICVINE_API_KEY:-}
+      KOMF_LOG_LEVEL: INFO
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/komf:/config:Z
+      - ./komf/application.yml:/config/application.yml:ro,z
+    ports:
+      - 8086:8085       # 8085 is Miniflux's
+    networks:
+      - media
+    restart: unless-stopped
+
+  recyclarr:
+    # Copies the TRaSH Guides quality profiles (normal and anime) into Sonarr and Radarr once a day.
+    # Pinned to v8: v9 changed how it runs. Settings: recyclarr.yml.
+    image: ghcr.io/recyclarr/recyclarr:8
+    container_name: recyclarr
+    user: ${PUID:-1000}:${PGID:-1000}
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      CRON_SCHEDULE: "@daily"
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/recyclarr:/config:Z
+      - ./recyclarr.yml:/config/recyclarr.yml:ro,z
+    networks:
+      - media
+    restart: unless-stopped
+
+  suggestarr:
+    image: ciuse99/suggestarr:latest
+    container_name: suggestarr
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      LOG_LEVEL: info
+      SUGGESTARR_PORT: 5000
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/suggestarr:/app/config/config_files:Z
+    ports:
+      - 5000:5000
+    networks:
+      - media           # Jellyfin http://jellyfin:8096, Seerr http://seerr:5055
+      - homelab         # LiteLLM http://litellm:4000/v1 (its own "suggestarr" key)
+    restart: unless-stopped
+
+  boxarr:
+    image: ghcr.io/iongpt/boxarr:latest
+    container_name: boxarr
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/boxarr:/config:Z
+    ports:
+      - 8888:8888
+    networks:
+      - media           # Radarr http://radarr:7878
+    restart: unless-stopped
+
+  blockbusterr:
+    image: ghcr.io/mahcks/blockbusterr:v2.0.1
+    container_name: blockbusterr
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - blockbusterr-data:/app/data
+    ports:
+      - 9091:9090       # 9090 is Cockpit on Fedora
+    networks:
+      - media           # Radarr http://radarr:7878, Sonarr http://sonarr:8989, Seerr http://seerr:5055
+    restart: unless-stopped
+
+  tdarr:
+    # Re-encodes files in place to save space. It changes your real files:
+    # start with a library pointed at a test folder (see README) before the whole library.
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr
+    environment:
+      <<: *lsio-env
+      UMASK_SET: "002"
+      serverIP: 0.0.0.0
+      serverPort: 8266
+      webUIPort: 8265
+      internalNode: "true"
+      inContainer: "true"
+      ffmpegVersion: "7"
+      nodeName: k8plus
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/tdarr/server:/app/server:Z
+      - ${APPDATA:-${HOME}/volumes}/tdarr/configs:/app/configs:Z
+      - ${APPDATA:-${HOME}/volumes}/tdarr/logs:/app/logs:Z
+      - ${DATA:-${HOME}/data}/tdarr-cache:/temp:Z
+      - ${DATA:-${HOME}/data}/media:/media:z
+    devices:
+      - /dev/dri:/dev/dri   # the Radeon iGPU, for hardware encoding (VAAPI)
+    ports:
+      - 8265:8265       # web UI
+      - 8266:8266       # server (only needed if a second node joins later, e.g. the AI box)
+    networks:
+      - media
+    restart: unless-stopped
+
+  jellydash:
+    image: ghcr.io/themartz90/jellydash:latest
+    container_name: jellydash
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      APP_TIMEZONE: ${TZ:-Europe/Dublin}
+      DB_DRIVER: sqlite3
+      DB_NAME: /var/www/html/var/data/jellydash.sqlite
+      JELLYFIN_URL: http://jellyfin:8096
+      JELLYFIN_LINK_URL: ${JELLYFIN_LINK_URL:-}
+      JELLYFIN_API_TOKEN: ${JELLYDASH_JELLYFIN_API_KEY:-}
+      JELLYSEER_URL: http://seerr:5055
+      JELLYSEER_API_TOKEN: ${SEERR_API_KEY:-}
+      AUTH_ENABLED: "true"
+      AUTH_ADMIN_USER: ${JELLYDASH_ADMIN_USER:-admin}
+      AUTH_ADMIN_PASSWORD: ${JELLYDASH_ADMIN_PASSWORD:?set JELLYDASH_ADMIN_PASSWORD in .env}
+    volumes:
+      - jellydash-data:/var/www/html/var/data
+      - jellydash-cache:/var/www/html/cache
+      - jellydash-runtime:/var/www/html/var/cache
+      - jellydash-sessions:/var/www/html/var/sessions
+      - jellydash-uploads:/var/www/html/public/uploads
+    ports:
+      - 8094:80   # 8095 belongs to Music Assistant (host network)
+    networks:
+      - media
+    restart: unless-stopped
+
+  arr-readonly:
+    # YETI's "what's downloading?" tool reads through this. Only GET on the queue endpoints
+    # is allowed; the API keys stay inside this container. Not published on the host:
+    # YETI reaches it as http://arr-readonly:8080 on the homelab network.
+    image: nginx:alpine
+    container_name: arr-readonly
+    environment:
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
+      LIDARR_API_KEY: ${LIDARR_API_KEY:-}
+      CHAPTARR_API_KEY: ${CHAPTARR_API_KEY:-}
+    volumes:
+      - ./arr-readonly.conf.template:/etc/nginx/templates/default.conf.template:ro,z
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /etc/nginx/conf.d
+      - /tmp
+    networks:
+      - media
+      - homelab
+    restart: unless-stopped
+
+volumes:
+  seerr-config:
+  blockbusterr-data:
+  jellydash-data:
+  jellydash-cache:
+  jellydash-runtime:
+  jellydash-sessions:
+  jellydash-uploads:
+
+networks:
+  media:
+    name: media
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          ip_range: 172.30.0.128/25   # automatic addresses come from here, fixed ones stay below .128
+  homelab:
+    external: true

@@ -1,0 +1,463 @@
+- name: Home
+  # Optionally, if you only have a single page you can hide the desktop navigation for a cleaner look
+  # hide-desktop-navigation: true
+  columns:
+    - size: small
+      widgets:
+        - type: releases
+          cache: 1d
+          show-source-icon: true
+          # Without authentication the Github API allows for up to 60 requests per hour. You can create a
+          # read-only token from your Github account settings and use it here to increase the limit.
+          token: ${GIT_PAT_TOKEN}
+          repositories:
+            - dockerhub:adguard/adguardhome
+            - dockerhub:linuxserver/emby
+            - dockerhub:linuxserver/nextcloud
+            - dockerhub:linuxserver/jackett
+            - dockerhub:linuxserver/sonarr
+            - dockerhub:linuxserver/radarr
+            - dockerhub:linuxserver/swag
+            - dockerhub:linuxserver/prowlarr
+            - dockerhub:linuxserver/code-server
+            - dockerhub:linuxserver/wireguard
+            - dockerhub:gitea/gitea
+            - dockerhub:gotify/server
+
+            - glanceapp/glance
+            - go-gitea/gitea
+            - immich-app/immich
+            # - syncthing/syncthing
+            - whoeevee/EeveeSpotify
+            - automatisch/automatisch
+            - Stirling-Tools/Stirling-PDF
+            - hydralauncher/hydra
+            - Genymobile/scrcpy
+            - barry-ran/QtScrcpy
+            - Heroic-Games-Launcher/HeroicGamesLauncher
+            - gitroomhq/postiz-app
+            - arabcoders/watchstate
+            - 5rahim/seanime
+            - supechicken/waydroid-androidtv-build
+            - fosrl/pangolin
+            - bkaankose/Wino-Mail
+            - kubero-dev/kubero
+            - vikdevelop/SaveDesktop
+            - ClassicOldSong/moonlight-android
+            - ClassicOldSong/Apollo
+
+        - type: dns-stats
+          service: adguard
+          allow-insecure: true
+          url: http://adguardhome:3000
+          username: ${ADGUARD_USERNAME}
+          password: ${ADGUARD_PASSWORD}
+
+        - type: server-stats
+          servers:
+            - type: local
+              hide-mountpoints-by-default: true
+              mountpoints:
+                "/app/config":
+                  hide: false
+                  name: "Host"
+              name: Services
+
+
+
+
+        - type: calendar
+          first-day-of-week: monday
+
+        # - type: rss
+        #   limit: 10
+        #   collapse-after: 3
+        #   cache: 12h
+        #   feeds:
+        #     - url: https://selfh.st/rss/
+        #       title: selfh.st
+        #     - url: https://ciechanow.ski/atom.xml
+        #     - url: https://www.joshwcomeau.com/rss.xml
+        #       title: Josh Comeau
+        #     - url: https://samwho.dev/rss.xml
+        #     - url: https://ishadeed.com/feed.xml
+        #       title: Ahmad Shadeed
+
+        # - type: twitch-channels
+        #   channels:
+        #     - theprimeagen
+        #     - j_blow
+        #     - piratesoftware
+        #     - cohhcarnage
+        #     - christitustech
+        #     - EJ_SA
+
+    - size: full
+      widgets:
+    #     - type: group
+    #       widgets:
+    #         - type: hacker-news
+    #         - type: lobsters
+
+      
+
+        - type: docker-containers
+          sock-path: tcp://socket-proxy:2375
+          hide-by-default: true
+          title: Containers
+          collapse-after: 5
+
+        - type: group
+          widgets:
+          - type: videos
+            cache: 30m
+            style: grid-cards
+            # collapse-after: 10
+            limit: 30
+            collapse-after-rows: 2
+            include-shorts: true
+            channels:
+              - UC_0CVCfC_3iuHqmyClu59Uw # ETA Prime
+              - UCltuKUCkE82ojAtPJy9rFQA # Venom's Tech
+              - UCdBK94H6oZT2Q7l0-b0xmMg # Short Circuit
+              - UC8wZnXYK_CGKlBcZp-GxYPA # NeuralNine Python
+              - UCdp6GUwjKscp5ST4M4WgIpw # TechWiser
+              - UCg6gPGh8HU2U01vaFCAsvmQ # ChrisTitusTech
+              - UCeeFfhMcJa1kjtfZAGskOCA # Tech Linked
+              - UCOk-gHyjcWZNj3Br4oxwh0A # Techno Tim
+              - UCO2x-p9gg9TLKneXlibGR7w # Snazzy Labs
+              - UCWFKCr40YwOZQx8FHU_ZqqQ # JerryRigEverything
+              - UCgdTVe88YVSrOZ9qKumhULQ # Hardware Haven
+              - UC9evhW4JB_UdXSLeZGy8lGw # Raid Owl
+              - UCwFpzG5MK5Shg_ncAhrgr9g # Awesome Self-Hosted
+              - UCA295QVkf9O1RQ8_-s3FVXg # AevyTV
+              - UC5UAwBUum7CPN5buc-_N1Fw # The Linux Experiment
+              - UCv6J_jJa8GJqFwQNgNrMuww # ServeTheHome
+              - UCXuqSBlHAE6Xw-yeJA0Tunw # Linus Tech Tips
+              - UCR-DXc1voovS8nhAvccRZhg # Jeff Geerling
+              - UCsBjURrPoezykLs9EqgamOA # Fireship
+              # - UCBJycsmduvYEL83R_U4JriQ # Marques Brownlee
+              # - UCHnyfMqiRRG1u-2MsSQLbXA # Veritasium
+          - type: videos
+            cache: 30m
+            style: grid-cards
+            # collapse-after: 10
+            limit: 30
+            collapse-after-rows: 2
+            include-shorts: true
+            title: Playlist
+            playlists:
+            - PLXXXXXXXXXX # Add your playlist ID, set it to unlisted, set it to add new videos to the top
+
+        # - type: group
+        #   widgets:
+        #     - type: reddit
+        #       subreddit: selfhosted
+        #       show-thumbnails: true
+        #     - type: reddit
+        #       subreddit: homelab
+        #       show-thumbnails: true
+        #     - type: reddit
+        #       subreddit: raspberry_pi
+        #       show-thumbnails: true
+        #     - type: reddit
+        #       subreddit: unixporn
+        #       show-thumbnails: true
+
+    - size: small
+      widgets:
+        - type: search
+          search-engine: google
+          new-tab: true
+          autofocus: true
+          bangs:
+            - title: GitHub
+              shortcut: "!gh"
+              url: https://github.com/search?q={QUERY}&type=repositories
+
+            - title: FitGirl
+              shortcut: "!fg"
+              url: https://fitgirl-repacks.site/?s={QUERY}
+
+            - title: YouTube
+              shortcut: "!yt"
+              url: https://www.youtube.com/results?search_query={QUERY}
+
+            - title: SimpleIcons
+              shortcut: "!si"
+              url: https://simpleicons.org/?q={QUERY}
+
+            - title: Grafana
+              shortcut: "!gf"
+              url: https://grafana.${HOME_DOMAIN}/dashboards?query={QUERY}
+
+        - type: custom-api
+          title: Immich stats
+          cache: 1d
+          url: ${IMMICH_URL}/api/server/statistics
+          headers:
+            x-api-key: ${IMMICH_API_KEY}
+            Accept: application/json
+          template: |
+            <div class="flex justify-between text-center">
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div>
+                  <div class="size-h6">PHOTOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div>
+                  <div class="size-h6">VIDEOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div>
+                  <div class="size-h6">USAGE</div>
+              </div>
+            </div>
+        - type: clock
+          hour-format: 12h
+          timezones:
+            - timezone: Eire
+              label: Dublin
+            - timezone: Asia/Kolkata
+              label: India
+            # - timezone: Asia/Tokyo
+            #   label: Tokyo
+
+        - type: weather
+          location: Dublin
+          units: metric # alternatively "imperial"
+          hour-format: 12h # alternatively "24h"
+          # Optionally hide the location from being displayed in the widget
+          # hide-location: true
+
+        - type: group
+          widgets:
+          - type: monitor
+            cache: 1m
+            title: Apps
+            sites:
+              - title: Home Assistant
+                url: https://ha.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8123
+                icon: di:home-assistant
+              - title: Nextcloud
+                url: https://nextcloud.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9875
+                icon: di:nextcloud
+              - title: Immich
+                url: https://immich.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:2283
+                icon: di:immich
+              - title: Firefly III
+                url: https://firefly.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:1212
+                icon: di:firefly-iii
+              - title: Miniflux
+                url: https://miniflux.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8085
+                icon: di:miniflux
+              - title: Authentik
+                url: https://auth.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9000
+                icon: di:authentik
+              - title: Obsidian LiveSync
+                url: https://couchdb.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:5984
+                icon: di:couchdb
+              - title: Vaultwarden
+                url: https://vault.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8222
+                icon: di:vaultwarden
+              - title: Kan
+                url: https://kan.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:3005
+                icon: di:kan
+              - title: n8n
+                url: https://n8n.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:5678
+                icon: di:n8n
+              - title: openGym
+                url: https://gym.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8283
+                icon: di:dumbbell
+              - title: Neohabit
+                url: https://habits.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8284
+                icon: di:habitica
+              - title: code-server
+                url: https://code.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8443
+                icon: di:code-server
+          - type: monitor
+            cache: 1m
+            title: Media
+            sites:
+              - title: Jellyfin
+                url: https://jellyfin.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8096
+                icon: di:jellyfin
+              - title: Seerr
+                url: https://seerr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:5055
+                icon: di:jellyseerr
+              - title: Radarr
+                url: https://radarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:7878
+                icon: di:radarr
+              - title: Sonarr
+                url: https://sonarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8989
+                icon: di:sonarr
+              - title: Lidarr
+                url: https://lidarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8686
+                icon: di:lidarr
+              - title: Mylar3
+                url: https://mylar.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8090
+                icon: di:mylar
+              - title: Bazarr
+                url: https://bazarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:6767
+                icon: di:bazarr
+              - title: Prowlarr
+                url: https://prowlarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9696
+                icon: di:prowlarr
+              - title: Deluge
+                url: https://deluge.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8112
+                icon: di:deluge
+              - title: Suwayomi
+                url: https://manga.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:4567
+                icon: di:suwayomi
+              - title: Kavita
+                url: https://comics.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:5001
+                icon: di:kavita
+              - title: Audiobookshelf
+                url: https://audiobooks.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:13378
+                icon: di:audiobookshelf
+              - title: Chaptarr
+                url: https://chaptarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8789
+                icon: di:readarr
+              - title: SuggestArr
+                url: https://suggestarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:5000
+                icon: di:suggestarr
+              - title: Boxarr
+                url: https://boxarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8888
+                icon: di:radarr
+              - title: Blockbusterr
+                url: https://blockbusterr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9091
+                icon: di:trakt
+              - title: Tdarr
+                url: https://tdarr.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8265
+                icon: di:tdarr
+              - title: Jellydash
+                url: https://jellydash.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8094
+                icon: di:jellystat
+          - type: monitor
+            cache: 1m
+            title: Admin
+            sites:
+              - title: Portainer
+                url: https://portainer.${HOME_DOMAIN}
+                check-url: https://host.docker.internal:9443
+                allow-insecure: true
+                icon: di:portainer
+              - title: Grafana
+                url: https://grafana.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:1234
+                icon: di:grafana
+              - title: Prometheus
+                url: https://prometheus.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9898
+                icon: di:prometheus
+              - title: AdGuard Home
+                url: https://adguard.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:3000
+                icon: di:adguard-home
+              - title: Zigbee2MQTT
+                url: https://zigbee.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8080
+                icon: di:zigbee2mqtt
+              - title: Speedtest
+                url: https://speedtest.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8070
+                icon: di:speedtest-tracker
+              - title: Dozzle
+                url: https://logs.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9999
+                icon: di:dozzle
+              - title: Scrutiny
+                url: https://disks.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8087
+                icon: di:scrutiny
+              - title: Music Assistant
+                url: https://music.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8095
+                icon: di:music-assistant
+              - title: ESPHome
+                url: https://esphome.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:6052
+                icon: di:esphome
+              - title: Open WebUI
+                url: https://chat.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:3010
+                icon: di:open-webui
+              - title: Paperless
+                url: https://docs.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8010
+                icon: di:paperless-ngx
+              - title: Mealie
+                url: https://recipes.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:9925
+                icon: di:mealie
+              - title: Sherpa
+                url: https://discord.com/channels/@me
+                check-url: http://host.docker.internal:8320/health
+                icon: di:discord
+              - title: Uptime Kuma
+                url: https://uptime.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:3001
+                icon: di:uptime-kuma
+              - title: LiteLLM
+                url: https://litellm.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:4000
+                icon: di:litellm
+              - title: OmniRoute
+                url: https://omniroute.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:20128
+                icon: di:openai
+              - title: SearXNG
+                url: https://search.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8089
+                icon: di:searxng
+              - title: llama-swap
+                url: https://llama.${HOME_DOMAIN}
+                check-url: http://host.docker.internal:8099
+                icon: di:llama-cpp
+
+        # - type: markets
+        #   # The link to go to when clicking on the symbol in the UI,
+        #   # {SYMBOL} will be substituded with the symbol for each market
+        #   symbol-link-template: https://www.tradingview.com/symbols/{SYMBOL}/news
+        #   markets:
+        #     - symbol: SPY
+        #       name: S&P 500
+        #     - symbol: BTC-USD
+        #       name: Bitcoin
+        #     - symbol: NVDA
+        #       name: NVIDIA
+        #     - symbol: AAPL
+        #       name: Apple
+        #     - symbol: MSFT
+        #       name: Microsoft

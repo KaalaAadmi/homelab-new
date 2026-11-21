@@ -1,0 +1,55 @@
+# Based on the official compose file for authentik 2026.8.5 (goauthentik.io/docker-compose.yml).
+# Changes: data folders under APPDATA with SELinux labels, joined to the homelab network,
+# the worker does NOT get the Docker socket (only needed for Docker-managed outposts),
+# and the database is "authentik" on the shared Postgres (docker/postgres), not its own container.
+
+name: authentik
+
+x-authentik-env: &authentik-env
+  AUTHENTIK_POSTGRESQL__HOST: postgres
+  AUTHENTIK_POSTGRESQL__NAME: authentik
+  AUTHENTIK_POSTGRESQL__USER: authentik
+  AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:?set PG_PASS in .env (same as AUTHENTIK_DB_PASSWORD in docker/postgres/.env)}
+  AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+
+services:
+  server:
+    container_name: authentik-server
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.5}
+    command: server
+    env_file: .env
+    environment:
+      <<: *authentik-env
+    shm_size: 512mb
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/authentik/data:/data:Z
+      - ${APPDATA:-${HOME}/volumes}/authentik/custom-templates:/templates:Z
+    ports:
+      - ${COMPOSE_PORT_HTTP:-9000}:9000
+      - ${COMPOSE_PORT_HTTPS:-9444}:9443   # 9443 is Portainer's
+    networks:
+      - db
+      - homelab                            # so cloudflared and Grafana can reach it
+    restart: unless-stopped
+
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.5}
+    command: worker
+    env_file: .env
+    environment:
+      <<: *authentik-env
+    shm_size: 512mb
+    user: root
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/authentik/data:/data:Z
+      - ${APPDATA:-${HOME}/volumes}/authentik/certs:/certs:Z
+      - ${APPDATA:-${HOME}/volumes}/authentik/custom-templates:/templates:Z
+    networks:
+      - db
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true
+  homelab:
+    external: true

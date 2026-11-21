@@ -1,0 +1,77 @@
+# YETI only ever asks for a role. Swapping models (free cloud now, the AI box later)
+# is an edit here, not a code change. Keys come from the environment (os.environ/...).
+#
+# Data rule: yeti-private is local only and has NO fallback, so health, money and private
+# notes can never leave the house, even when the local model is down.
+
+model_list:
+  # Everyday chat, home commands, routines, most sub-agents
+  - model_name: yeti-fast
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+
+  # Multi-step tasks and planning
+  - model_name: yeti-deep
+    litellm_params:
+      model: openrouter/openrouter/free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Coding jobs (background)
+  - model_name: yeti-coder
+    litellm_params:
+      model: openrouter/openrouter/free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Long-form writing, no tools
+  - model_name: yeti-writer
+    litellm_params:
+      model: openrouter/openrouter/free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # When a free model fails or hits its limits. Test data only (Gemini free trains on input).
+  - model_name: yeti-backup
+    litellm_params:
+      model: gemini/gemini-flash-latest
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: yeti-backup
+    litellm_params:
+      model: openai/auto                       # OmniRoute picks among its API-key providers
+      api_base: http://omniroute:20128/v1
+      api_key: os.environ/OMNIROUTE_API_KEY
+
+  # Wardrobe tagging, screenshots. Test images only until vision runs locally.
+  - model_name: yeti-vision
+    litellm_params:
+      model: gemini/gemini-flash-latest
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Health, money, private notes: local only, on the K8 Plus processor for now
+  - model_name: yeti-private
+    litellm_params:
+      model: openai/qwen3-4b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+  # Memory search (1024-dim). Same model later on the AI box, so no re-indexing.
+  - model_name: yeti-embed
+    litellm_params:
+      model: openai/qwen3-embedding
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+router_settings:
+  num_retries: 1
+  fallbacks:
+    - yeti-fast: [yeti-backup]
+    - yeti-deep: [yeti-backup]
+    - yeti-coder: [yeti-backup]
+    - yeti-writer: [yeti-backup]
+    # no entry for yeti-private or yeti-embed: they never fall back to the cloud
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

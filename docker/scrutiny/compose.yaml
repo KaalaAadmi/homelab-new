@@ -1,0 +1,27 @@
+# Scrutiny: reads each SSD's health (SMART) and warns before a drive fails.
+# Web page at disks.<HOME_DOMAIN> (behind the Authentik login).
+# It needs raw access to the drives, hence the capabilities and devices below.
+# Check your drive names with: lsblk -d -o NAME,MODEL,SIZE   (nvme0 = first SSD, nvme1 = second)
+
+name: scrutiny
+
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    container_name: scrutiny
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN       # needed to read NVMe health
+    devices:
+      - ${DISK_1:-/dev/nvme0}:${DISK_1:-/dev/nvme0}
+      # - /dev/nvme1:/dev/nvme1      # uncomment when you add the second SSD
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      SCRUTINY_NOTIFY_URLS: ${SCRUTINY_NOTIFY_URLS:-}
+    volumes:
+      - /run/udev:/run/udev:ro
+      - ${APPDATA:-${HOME}/volumes}/scrutiny/config:/opt/scrutiny/config:Z
+      - ${APPDATA:-${HOME}/volumes}/scrutiny/influxdb:/opt/scrutiny/influxdb:Z
+    ports:
+      - 8087:8080       # 8080 is Zigbee2MQTT's
+    restart: unless-stopped

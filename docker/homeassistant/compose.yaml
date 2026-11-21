@@ -1,0 +1,100 @@
+# Home Assistant (Container install) + Music Assistant + ESPHome + Mosquitto + Matter server + Zigbee2MQTT.
+# Runs on whichever box is in Dublin: the Zigbee dongle and all devices must be in the same house.
+#
+# First start (no dongle yet):   docker compose up -d
+# Once the ZBT-2 is plugged in:   set ZIGBEE_DEVICE in .env, then  docker compose --profile zigbee up -d
+
+name: homeassistant
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    network_mode: host                 # needed for device discovery (mDNS, Matter, HomeKit)
+    privileged: true
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/homeassistant:/config:Z
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro         # Bluetooth (Tesla BLE proxy, sensors)
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+  # Music player: plays your library (Lidarr's music folder) and any streaming service you add
+  # to the room speaker (through the Voice PE), Home Assistant speakers and phones.
+  # Web page on port 8095 (its own login). Players fetch the audio from port 8097.
+  music-assistant:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: music-assistant
+    network_mode: host                 # required: finds players and streams to them
+    environment:
+      LOG_LEVEL: info
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/music-assistant:/data:Z
+      - ${DATA:-${HOME}/data}/media/music:/media/music:ro,z
+    restart: unless-stopped
+
+  # ESPHome builder: compiles and flashes the Voice PE firmware, including the custom
+  # "Hey Yeti" wake word. Web page on port 6052, behind an Authentik login through Caddy.
+  esphome:
+    image: ghcr.io/esphome/esphome:stable
+    container_name: esphome
+    network_mode: host                 # finds devices with mDNS, flashes them over Wi-Fi
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/esphome:/config:Z
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro,z
+      - ${APPDATA:-${HOME}/volumes}/mosquitto/data:/mosquitto/data:Z
+      - ${APPDATA:-${HOME}/volumes}/mosquitto/log:/mosquitto/log:Z
+    ports:
+      - 1883:1883                      # Home Assistant (host network) connects on localhost:1883
+    networks:
+      - homeassistant
+    restart: unless-stopped
+
+  matter-server:
+    image: ghcr.io/matter-js/matterjs-server:stable
+    container_name: matter-server
+    network_mode: host                 # Matter needs the host network (IPv6, mDNS)
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/matter-server:/data:Z
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+
+  zigbee2mqtt:
+    image: ghcr.io/koenkk/zigbee2mqtt:latest
+    container_name: zigbee2mqtt
+    profiles: [zigbee]                 # only starts with --profile zigbee (needs the dongle)
+    environment:
+      TZ: ${TZ:-Europe/Dublin}
+      ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto:1883
+      ZIGBEE2MQTT_CONFIG_MQTT_USER: ${MQTT_USER:-homeassistant}
+      ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}
+      ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyACM0
+      ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: ember        # ZBT-2 (Silicon Labs chip)
+      ZIGBEE2MQTT_CONFIG_HOMEASSISTANT_ENABLED: "true"
+      ZIGBEE2MQTT_CONFIG_FRONTEND_ENABLED: "true"
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/zigbee2mqtt:/app/data:Z
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${ZIGBEE_DEVICE:-/dev/ttyACM0}:/dev/ttyACM0
+    ports:
+      - 8080:8080                      # Zigbee2MQTT web UI
+    depends_on:
+      - mosquitto
+    networks:
+      - homeassistant
+    restart: unless-stopped
+
+networks:
+  homeassistant: {}

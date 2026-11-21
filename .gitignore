@@ -1,0 +1,5 @@
+# Secrets: every stack keeps real values in a local .env (copied from .env.example)
+.env
+*.env
+__pycache__/
+.pytest_cache/

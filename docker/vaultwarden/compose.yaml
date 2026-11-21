@@ -1,0 +1,37 @@
+# Vaultwarden: password manager server that works with the official Bitwarden apps.
+# Database: "vaultwarden" on the shared Postgres. Address: https://vault.<HOME_DOMAIN>.
+#
+# Reachable on your home network and over Tailscale only (never through the Cloudflare Tunnel).
+# Away from home the phone needs Tailscale on to sync; the Bitwarden apps keep an offline copy,
+# so you can still read passwords without it.
+# Its log file feeds fail2ban (host/fail2ban), which blocks repeated wrong passwords.
+
+name: vaultwarden
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      DATABASE_URL: postgresql://vaultwarden:${DB_PASSWORD:?set DB_PASSWORD in .env}@postgres:5432/vaultwarden
+      SIGNUPS_ALLOWED: ${SIGNUPS_ALLOWED:-false}
+      INVITATIONS_ALLOWED: "true"
+      SHOW_PASSWORD_HINT: "false"
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      IP_HEADER: X-Forwarded-For       # Caddy passes the real client address in this header
+      LOG_FILE: /data/vaultwarden.log
+      LOG_LEVEL: warn
+      EXTENDED_LOGGING: "true"
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/vaultwarden:/data:Z
+    ports:
+      - 8222:80
+    networks:
+      - db
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true

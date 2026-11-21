@@ -1,0 +1,36 @@
+# One shared Postgres 17 (with pgvector) for every app that can use Postgres.
+# Each app gets its own database and its own login; no app can open another app's database.
+# Immich keeps its own Postgres (it needs Immich's special build). CouchDB stays for Obsidian.
+#
+# Apps reach it as host "postgres", port 5432, on the "db" Docker network.
+# It is not published on the host, so nothing outside Docker can connect.
+
+name: postgres
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: postgres
+    env_file: .env          # the *_DB_PASSWORD lines are read by init/10-app-databases.sh
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      TZ: ${TZ:-Europe/Dublin}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/postgres/data:/var/lib/postgresql/data:Z
+      - ./init:/docker-entrypoint-initdb.d:ro,z
+      - ${BACKUP_DIR:-${HOME}/volumes/postgres-backups}:/backups:Z
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - db
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true

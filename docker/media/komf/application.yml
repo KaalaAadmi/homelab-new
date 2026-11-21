@@ -1,0 +1,44 @@
+# Komf settings. Secrets come from the environment (KOMF_KAVITA_API_KEY,
+# KOMF_METADATA_PROVIDERS_COMIC_VINE_API_KEY), set in docker/media/.env.
+
+komga:
+  eventListener:
+    enabled: false              # we use Kavita, not Komga
+
+kavita:
+  baseUri: http://kavita:5000
+  eventListener:
+    enabled: true               # pick up new series as soon as Kavita adds them
+  metadataUpdate:
+    default:
+      libraryType: "MANGA"
+      updateModes: [ API ]
+      aggregate: false
+      bookCovers: false
+      seriesCovers: true
+      overrideExistingCovers: true
+      lockCovers: true
+      postProcessing:
+        seriesTitle: false      # keep the folder's title
+        alternativeSeriesTitles: true
+        alternativeSeriesTitleLanguages:
+          - "ja-ro"
+
+database:
+  file: ./database.sqlite
+
+metadataProviders:
+  defaultProviders:
+    mangaUpdates:               # best for manga
+      priority: 10
+      enabled: true
+      mediaType: "MANGA"
+    aniList:                    # good summaries and tags
+      priority: 20
+      enabled: true
+      mediaType: "MANGA"
+      tagsScoreThreshold: 60
+      tagsSizeLimit: 15
+    comicVine:                  # Western comics (needs COMICVINE_API_KEY)
+      priority: 30
+      enabled: true

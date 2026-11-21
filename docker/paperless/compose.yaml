@@ -1,0 +1,55 @@
+# Paperless-ngx: scans and PDFs (bills, letters, warranties, contracts) made searchable with OCR.
+# Database: "paperless" on the shared Postgres. Drop files into ~/data/paperless/consume (or upload
+# in the web page, or let YETI file a photo) and Paperless reads, tags and stores them.
+
+name: paperless
+
+services:
+  broker:
+    image: valkey/valkey:8-alpine
+    container_name: paperless-broker
+    volumes:
+      - paperless-redis:/data
+    restart: unless-stopped
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    depends_on:
+      - broker
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      PAPERLESS_SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      PAPERLESS_URL: ${BASE_URL:?set BASE_URL in .env}
+      PAPERLESS_TIME_ZONE: ${TZ:-Europe/Dublin}
+      PAPERLESS_OCR_LANGUAGE: eng
+      PAPERLESS_ADMIN_USER: ${ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      USERMAP_UID: ${PUID:-1000}
+      USERMAP_GID: ${PGID:-1000}
+    volumes:
+      - ${APPDATA:-${HOME}/volumes}/paperless/data:/usr/src/paperless/data:Z
+      - ${DATA:-${HOME}/data}/paperless/media:/usr/src/paperless/media:Z
+      - ${DATA:-${HOME}/data}/paperless/export:/usr/src/paperless/export:Z
+      - ${DATA:-${HOME}/data}/paperless/consume:/usr/src/paperless/consume:Z
+    ports:
+      - 8010:8000
+    networks:
+      - default
+      - db
+      - homelab        # YETI calls http://paperless:8000/api
+    restart: unless-stopped
+
+volumes:
+  paperless-redis:
+
+networks:
+  db:
+    external: true
+  homelab:
+    external: true

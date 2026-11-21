@@ -1,0 +1,47 @@
+# Glance dashboard. Its container widgets read Docker through a read-only socket proxy
+# instead of mounting the Docker socket directly.
+
+name: dashboard
+
+services:
+  glance:
+    image: glanceapp/glance:latest
+    container_name: glance
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro,z
+      - ./assets:/app/assets:ro,z
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway   # lets the monitor widgets check each service's port
+    ports:
+      - 8081:8080
+    networks:
+      - dashboard
+      - homelab
+    depends_on:
+      - socket-proxy
+    restart: unless-stopped
+
+  socket-proxy:
+    image: lscr.io/linuxserver/socket-proxy:latest
+    container_name: socket-proxy
+    environment:
+      CONTAINERS: 1     # allow listing containers
+      POST: 0           # read-only: no starting, stopping or creating
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - label=disable   # SELinux on Fedora blocks socket access otherwise
+    read_only: true
+    tmpfs:
+      - /run
+    networks:
+      - dashboard       # private network: only Glance can reach it
+    restart: unless-stopped
+
+networks:
+  dashboard:
+    internal: true
+  homelab:
+    external: true

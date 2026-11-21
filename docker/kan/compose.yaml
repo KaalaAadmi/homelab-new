@@ -1,0 +1,46 @@
+# Kan: Trello-style boards. Database: "kan" on the shared Postgres.
+# The migrate container updates the database, then exits; the web app starts after it.
+
+name: kan
+
+x-kan-db: &kan-db
+  POSTGRES_URL: postgresql://kan:${DB_PASSWORD:?set DB_PASSWORD in .env}@postgres:5432/kan
+
+services:
+  migrate:
+    image: ghcr.io/kanbn/kan-migrate:latest
+    environment:
+      <<: *kan-db
+    networks:
+      - db
+    restart: "no"
+
+  web:
+    image: ghcr.io/kanbn/kan:latest
+    container_name: kan
+    environment:
+      <<: *kan-db
+      NEXT_PUBLIC_BASE_URL: ${BASE_URL:?set BASE_URL in .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BASE_URL}
+      NEXT_PUBLIC_ALLOW_CREDENTIALS: "true"
+      NEXT_PUBLIC_DISABLE_SIGN_UP: ${DISABLE_SIGN_UP:-false}
+      NEXT_PUBLIC_DISABLE_EMAIL: "true"
+      NEXT_PUBLIC_WHITE_LABEL_HIDE_POWERED_BY: "true"
+      LOG_LEVEL: info
+      # Sign in with Authentik (optional): fill these three in .env
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - 3005:3000
+    networks:
+      - db
+    restart: unless-stopped
+
+networks:
+  db:
+    external: true
